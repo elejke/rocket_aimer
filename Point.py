@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
+from dateutil import parser
 
 
 class Point(object):
@@ -19,12 +20,15 @@ class Point(object):
         за ускорения цели в данный момент времени.
     """
 
-    def __init__(self, timestamp=np.nan,
+    def __init__(self, timestamp=None,
                  x=np.nan, y=np.nan, z=np.nan,
                  v_x=np.nan, v_y=np.nan, v_z=np.nan,
                  a_x=np.nan, a_y=np.nan, a_z=np.nan):
         # время, в которое цель находилась в точке (x, y, z)
-        self.timestamp = timestamp
+        if timestamp:
+            self.timestamp = parser.parse(timestamp)
+        else:
+            self.timestamps = timestamp
         # координаты по трём осям
         self.x = x
         self.y = y
@@ -41,6 +45,21 @@ class Point(object):
         self.v = np.sum(np.array([self.v_x, self.v_y, self.v_z]) ** 2)
         # модуль ускорения
         self.a = np.sum(np.array([self.a_x, self.a_y, self.a_z]) ** 2)
+        
+    def __add__(self, other):
+        """
+        Перегрузка функции сложения для точек координат, скоростей и ускорений.
+        """
+        return Point(timestamp=self.timestamp,
+                     x = self.x + other.x,
+                     y = self.y + other.y,
+                     z = self.z + other.z,
+                     v_x = self.v_x + other.v_x,
+                     v_y = self.v_y + other.v_y,
+                     v_z = self.v_z + other.v_z,
+                     a_x = self.a_x + other.a_x,
+                     a_y = self.a_y + other.a_y,
+                     a_z = self.a_z + other.a_z)
 
     def set_coordinates(self, timestamp, x, y, z,
                         v_x=np.nan, v_y=np.nan, v_z=np.nan,

@@ -2,11 +2,9 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 from Point import Point
-from scipy.misc import imread
-from matplotlib.figure import Figure
-from matplotlib.backends.backend_gtk3agg import FigureCanvasGTK3Agg as FigureCanvas
 
 
 class Trajectory(object):
@@ -18,17 +16,13 @@ class Trajectory(object):
     4.
     """
 
-    def __init__(self, target="Target_0", map_ = 'data/map.jpg'):
-        # Название и характеристики цели (на данный момент - строка):
-        self.target = target
+    def __init__(self):
         # Координаты, скорости, ускорения и таймстампы точек траектории
         self.trajectory = []
         # Значения точек траектории, полученные после её обработки одним
         # или несколькими последовательно примененными алгоритмами фильтрации
         # и интерполяции
         self.filtered_trajectory = []
-        self.__map__ = None
-        self.__img__ = imread(map_)
 
     def add_point_by_coordinates(self, timestamp, x, y, z,
                                  v_x=np.nan, v_y=np.nan, v_z=np.nan,
@@ -45,10 +39,46 @@ class Trajectory(object):
             point: Point: объект класса Point,
         """
         self.trajectory.append(point)
-        self._filter_trajectory(filtring_type="l1_filtering")
-        # self._recompute_speed()
-        # self._recompute_accelerations()
+        self.filtered_trajectory = self.trajectory
+        # для пересчёта траектории с фильтрацией раскомментировать следующую строчку:
+        # self._filter_trajectory(filtring_type="l1_filtering")
+
+        if len(self.trajectory) > 1:
+            self._recompute_speed()
+        if len(self.trajectory) > 2:
+            self._recompute_accelerations()
         return self
+
+    def get_info_object(self):
+        '''
+        Получает информацию об объекте в крайней точке
+        :return: Лист с информацией
+        '''
+        last_point = self.trajectory[-1]
+        coordinate = last_point.get_coordinates()
+        speed = last_point.get_speed(), last_point.get_speed_value()
+        acceleration = last_point.get_acceleration(), last_point.get_acceleration_value()
+        return coordinate, speed, acceleration
+
+    def _recompute_speed(self):
+        """
+        Функция вычисления скорости по вновь пришедшей и предыдущей точке.
+        """
+        last_point = self.filtered_trajectory[-2]
+        current_point = self.filtered_trajectory[-1]
+        v = (current_point.get_coordinates() - last_point.get_coordinates() + len(self.trajectory) * 0.00000001) / \
+            (current_point.timestamp - last_point.timestamp).total_seconds()
+        current_point.set_speed(v[0], v[1], v[2])
+
+    def _recompute_accelerations(self):
+        """
+        Функция вычисления ускорения по вновь пришедшей и предыдущей точке.
+        """
+        last_point = self.filtered_trajectory[-2]
+        current_point = self.filtered_trajectory[-1]
+        a = (current_point.get_speed() - last_point.get_speed()) / \
+            (current_point.timestamp - last_point.timestamp).total_seconds()
+        current_point.set_acceleration(a[0], a[1], a[2])
 
     def _filter_trajectory(self, filtring_type=None):
 
@@ -57,7 +87,6 @@ class Trajectory(object):
         Фильтрация и сглаживание траектории одним из способов:
         Нужно минимум window точек
         """
-
 
         def savgol(arr, window=15, order=5, deriv=0, rate=1):
             # window >= order + 2
@@ -93,16 +122,44 @@ class Trajectory(object):
 
         return self.filtered_trajectory
 
-    def get_map(self):
-        mplfigure = Figure()
-        ax = mplfigure.add_subplot(111)
-        ax.plot([self.filtered_trajectory[i].x for i in range(len(self.filtered_trajectory))],
-                 [self.filtered_trajectory[i].y for i in range(len(self.filtered_trajectory))])
-        ax.legend()
-        ax.imshow(self.__img__, extent=[0, self.__img__.shape[1], 0, self.__img__.shape[0]])
-        canvas = FigureCanvas(mplfigure)
-        canvas.set_size_request(400, 400)
-        return canvas
+    def get_coordinates_list(self):
+        """
+        Метод, который выдаёт список координат в формате [[t_1, ..., t_n],
+        [x_1, ..., x_n], [y_1, ..., y_n], [z_1, ..., z_n], ]
+        """
+        ts = [coord.timestamp for coord in self.filtered_trajectory]
+        xs = [coord.x for coord in self.filtered_trajectory]
+        ys = [coord.y for coord in self.filtered_trajectory]
+        zs = [coord.z for coord in self.filtered_trajectory]
+
+        return ts, xs, ys, zs
+
+    def load_trajectory(self, filename="data/trajectories/ID001.json"):
+        """
+        Функция загрузки траектории из файла.
+
+        :param filename: str: Строка, указывающая полный путь до файла траектории
+        :return:
+        """
+        df = pd.read_json(filename, orient="records", lines=True)
+        df = df.iloc[len(self.trajectory):]
+        #ts, xs, ys, zs = df["timestamp"].values, df["x"].values, df["y"].values, df["z"].values
+        for point_ in df.iterrows():
+            ts, xs, ys, zs = point_[1].values
+            self.add_point_by_coordinates(ts, xs, ys, zs)
+
+    def save_trajectory(self, filename="data/trajectories/ID001.json", ):
+        """
+        Функция сохранения траектории в файл.
+
+        :param filename: str: Строка, указывающая полный путь до файла траектории
+        :return:
+        """
+
+        ts, xs, ys, zs = self.get_coordinates_list()
+        df = pd.DataFrame(np.array([ts, xs, ys, zs]).T, columns=["timestamp", "x", "y", "z"])
+
+        df.to_json(filename, orient="records", lines=True)
 
 if __name__ == "__main__":
     test = Trajectory()
@@ -119,7 +176,4 @@ if __name__ == "__main__":
         test.add_point_by_coordinates(0.1, trajectory[i][0], trajectory[i][1], 0.1)
 
     plt.close()
-    # img = imread('data/map.jpg')
-    # plt.plot([test.trajectory[i].x for i in range(len(test.trajectory))],
-    #          [test.trajectory[i].y for i in range(len(test.trajectory))], '.')
     test.get_map()
