@@ -96,3 +96,10 @@ class Rocket(Trajectory):
         x, y, z = self.coordinates
         for i in range(500):
             self.add_point(Point(datetime.now().isoformat(), x + i, y + i, z + i))
+
+
+if __name__ == "__main__":
+    test = Target(target_id="ID001", target_name="F-16")
+    test.fake_trajectory()
+    test.save_trajectory("data/trajectories/test.json")
+    test.load_trajectory("data/trajectories/test.json")

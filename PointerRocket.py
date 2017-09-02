@@ -8,8 +8,11 @@ from Point import Point
 from ModelObject import Rocket, Target
 
 
-class AimerRocket:
-    def __init__(self, rocket = None, target= None):
+class PointerRocket:
+    """
+    Класс наводчика ракеты на цель
+    """
+    def __init__(self, rocket=None, target=None):
         self.MAX_SPEED_AXES = 10
         self.TIME = 10
         if isinstance(rocket, Rocket):
@@ -24,7 +27,9 @@ class AimerRocket:
     def __calculate_trajectory__(self):
         """
         Метод реализации способа наведения
-        :return:
+        """
+        """
+        Получаем информацию о ракете и цели
         """
         if isinstance(self.__rocket__, type(None)):
             return
@@ -39,6 +44,12 @@ class AimerRocket:
         if not isinstance(a_rocket, type(None)):
             [a_rocket_x, a_rocket_y, a_rocket_z], a_rocket_abs = a_rocket
         coordinate_target, speed_target, a_target = self.__target__.get_info_object()
+        """
+        Алгоритм наведения на цель:
+        вычисляем расстояния по координатам
+        в зависимости от расстояний выставляются коэффициенты
+        и умножаются на векторы скоростей 
+        """
         distance = coordinate_target - coordinate_rocket
         coef = distance / np.max(distance)
         speed = coef * self.MAX_SPEED_AXES
@@ -50,9 +61,15 @@ class AimerRocket:
                           v_x=speed[0],
                           v_y=speed[1],
                           v_z=speed[2])
+        # Добавляем новую точку в траекторию ракеты
         self.__rocket__.add_point(new_point)
 
     def set_rocket_target(self, rocket, target):
+        """
+        Метод задания рокеты и цели
+        :param rocket: объект типа Rocket
+        :param target: объект типа Target
+        """
         if isinstance(rocket, Rocket):
             self.__rocket__ = rocket
         else:

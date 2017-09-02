@@ -3,17 +3,17 @@
 
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 from Point import Point
 
 
 class Trajectory(object):
     """
-    1. Метод, который кушает одну приходящую точку (x, y, z, v_x=np.nan, v_y=np.nan, v_z=np.nan, a_x=np.nan, a_y=np.nan, a_z=np.nan),
-    если тестовый режим работы - зашумляем, если присутствуют только координаты, *считает* скорости, ускорения и сохраняет это в self.x_list, self...
+    1. Метод, который кушает одну приходящую точку (x, y, z, v_x=np.nan, v_y=np.nan, v_z=np.nan, a_x=np.nan,
+     a_y=np.nan, a_z=np.nan),
+    если тестовый режим работы - зашумляем, если присутствуют только координаты, *считает* скорости, ускорения и
+     сохраняет это в self.x_list, self...
     2. Внутренний методы просчёта, фильтрации и аппроксимации траекторий.
     3. Метод для тестового зашумления данных и тд
-    4.
     """
 
     def __init__(self):
@@ -23,11 +23,12 @@ class Trajectory(object):
         # или несколькими последовательно примененными алгоритмами фильтрации
         # и интерполяции
         self.filtered_trajectory = []
+        self.trajectory_id = None
+        self.trajectory_type = None
 
     def add_point_by_coordinates(self, timestamp, x, y, z,
                                  v_x=np.nan, v_y=np.nan, v_z=np.nan,
                                  a_x=np.nan, a_y=np.nan, a_z=np.nan):
-
         self.add_point(Point(timestamp, x, y, z, v_x, v_y, v_z, a_x, a_y, a_z))
         return self
 
@@ -50,10 +51,10 @@ class Trajectory(object):
         return self
 
     def get_info_object(self):
-        '''
+        """
         Получает информацию об объекте в крайней точке
         :return: Лист с информацией
-        '''
+        """
         last_point = self.trajectory[-1]
         coordinate = last_point.get_coordinates()
         speed = last_point.get_speed(), last_point.get_speed_value()
@@ -76,9 +77,9 @@ class Trajectory(object):
         """
         last_point = self.filtered_trajectory[-2]
         current_point = self.filtered_trajectory[-1]
-        a = (current_point.get_speed() - last_point.get_speed()) / \
+        a_x, a_y, a_z = (current_point.get_speed() - last_point.get_speed()) / \
             (current_point.timestamp - last_point.timestamp).total_seconds()
-        current_point.set_acceleration(a[0], a[1], a[2])
+        current_point.set_acceleration(a_x, a_y, a_z)
 
     def _filter_trajectory(self, filtring_type=None):
 
@@ -89,8 +90,17 @@ class Trajectory(object):
         """
 
         def savgol(arr, window=15, order=5, deriv=0, rate=1):
-            # window >= order + 2
+            """
+            Функция вычисления сглаживания Сав в окне
 
+            :param arr: list-like: список точек
+            :param window: int: окно, в котором происходит сглаживание
+            :param order: int: порядок сглаживания
+            :param deriv: int: порядок производной
+            :param rate: int:
+            :return:
+            """
+            # window >= order + 2
             from math import factorial
 
             if len(arr) < window:
@@ -101,13 +111,14 @@ class Trajectory(object):
             y = np.asarray(arr[:])
             order_range = range(order + 1)
             half_window = (window - 1) // 2
-            b = np.mat([[k ** i for i in order_range] for k in range(-half_window, half_window + 1)])
+            b = np.mat([[k ** j for j in order_range] for k in range(-half_window, half_window + 1)])
             m = np.linalg.pinv(b).A[deriv] * rate ** deriv * factorial(deriv)
             firstvals = y[0] - np.abs(y[1:half_window + 1][::-1] - y[0])
             lastvals = y[-1] + np.abs(y[-half_window - 1:-1][::-1] - y[-1])
             y = np.concatenate((firstvals, y, lastvals))
             return np.convolve(m[::-1], y, mode='valid')
 
+        # вычисление сглаживания отдельно для каждой из координат:
         self.filtered_trajectory = copy.deepcopy(self.trajectory)
         if len(self.filtered_trajectory) > 2:
             filtered_coordinate = savgol([self.trajectory[i].x for i in range(len(self.trajectory))])
@@ -143,7 +154,6 @@ class Trajectory(object):
         """
         df = pd.read_json(filename, orient="records", lines=True)
         df = df.iloc[len(self.trajectory):]
-        #ts, xs, ys, zs = df["timestamp"].values, df["x"].values, df["y"].values, df["z"].values
         for point_ in df.iterrows():
             ts, xs, ys, zs = point_[1].values
             self.add_point_by_coordinates(ts, xs, ys, zs)
@@ -157,23 +167,6 @@ class Trajectory(object):
         """
 
         ts, xs, ys, zs = self.get_coordinates_list()
-        df = pd.DataFrame(np.array([ts, xs, ys, zs]).T, columns=["timestamp", "x", "y", "z"])
+        df = pd.DataFrame(np.array([[t.isoformat() for t in ts], xs, ys, zs]).T, columns=["timestamp", "x", "y", "z"])
 
         df.to_json(filename, orient="records", lines=True)
-
-if __name__ == "__main__":
-    test = Trajectory()
-    sig = 1.3
-    a = 30
-    b = 20
-    trajectory = np.asarray([[i + np.random.randn() / sig, i + np.random.randn() / sig] for i in range(a)] + [
-        [a + i + np.random.randn() / sig, a + np.random.randn() / sig] for i in range(b)] + [
-                                [a + b + i + np.random.randn() / sig, a + i + np.random.randn() / sig] for i in
-                                range(20)])
-    pure_traj = np.asarray(
-        [[i, i] for i in range(a)] + [[a + i, a] for i in range(b)] + [[a + b + i, a + i] for i in range(20)])
-    for i in range(len(trajectory)):
-        test.add_point_by_coordinates(0.1, trajectory[i][0], trajectory[i][1], 0.1)
-
-    plt.close()
-    test.get_map()

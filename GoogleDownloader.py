@@ -11,6 +11,7 @@ from PIL import Image
 import os
 import math
 
+
 class GoogleMapDownloader:
     """
     Класс, который генерирует google карту высокого разрешения по заданным координатам (широта и долгота 
@@ -102,7 +103,7 @@ class GoogleMapDownloader:
 
 def main():
     # Create a new instance of GoogleMap Downloader
-    gmd = GoogleMapDownloader(55.213575, 38.905227 , 6)
+    gmd = GoogleMapDownloader(55.213575, 38.905227, 6)
 
     print("The tile coorindates are {}".format(gmd.getXY()))
 

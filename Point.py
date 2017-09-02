@@ -25,10 +25,10 @@ class Point(object):
                  v_x=np.nan, v_y=np.nan, v_z=np.nan,
                  a_x=np.nan, a_y=np.nan, a_z=np.nan):
         # время, в которое цель находилась в точке (x, y, z)
-        if timestamp:
+        if isinstance(timestamp, str):
             self.timestamp = parser.parse(timestamp)
         else:
-            self.timestamps = timestamp
+            self.timestamp = timestamp
         # координаты по трём осям
         self.x = x
         self.y = y
